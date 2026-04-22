@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Quest, QuestType, Character, CharacterStats, Dungeon, DungeonTemplate, LifeStatDefinition, LifeStatEntry } from './types';
+import type { Quest, QuestType, Character, CharacterStats, Dungeon, LifeStatDefinition, LifeStatEntry } from './types';
 import {
   getDefaultCharacter,
   getQuestTypeLabel,
@@ -8,7 +8,6 @@ import {
   calculateXpToNextLevel,
   CORE_VALUES,
   DUNGEON_TEMPLATES,
-  DEFAULT_LIFE_STATS,
 } from './types';
 import { 
   getCharacter, 
