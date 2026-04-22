@@ -658,7 +658,8 @@ function App() {
             </div>
           </div>
           
-          {/* Stats Grid */}
+          {/* Stats Grid - DISABLED for now */}
+          {/*
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
             {Object.entries(character.stats).map(([stat, value]) => (
               <div key={stat} className="bg-surface-light rounded-lg p-3 text-center">
@@ -667,6 +668,7 @@ function App() {
               </div>
             ))}
           </div>
+          */}
         </div>
       </div>
 
