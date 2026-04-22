@@ -15,6 +15,117 @@ export interface Quest {
   tags: string[];
 }
 
+// === DUNGEONS ===
+export type DungeonStatus = 'active' | 'completed' | 'failed';
+
+export interface DungeonDay {
+  day: number; // 1-based
+  completed: boolean;
+  completedAt?: string;
+}
+
+export interface Dungeon {
+  id: string;
+  name: string;
+  description: string;
+  category: 'habit' | 'challenge' | 'streak';
+  durationDays: number;
+  days: DungeonDay[];
+  status: DungeonStatus;
+  startedAt: string;
+  completedAt?: string;
+  xpReward: number;
+  icon?: string;
+}
+
+export interface DungeonTemplate {
+  id: string;
+  name: string;
+  description: string;
+  durationDays: number;
+  category: 'habit' | 'challenge' | 'streak';
+  xpReward: number;
+  icon: string;
+}
+
+export const DUNGEON_TEMPLATES: DungeonTemplate[] = [
+  {
+    id: 'nofap-7',
+    name: 'NoFap Fortress',
+    description: '7 Tage ohne PMO. Teste deine Willenskraft.',
+    durationDays: 7,
+    category: 'challenge',
+    xpReward: 500,
+    icon: '🏰',
+  },
+  {
+    id: 'meditation-30',
+    name: 'Temple of Mindfulness',
+    description: '30 Tage täglich meditieren. Finde deine innere Ruhe.',
+    durationDays: 30,
+    category: 'habit',
+    xpReward: 1000,
+    icon: '🛕',
+  },
+  {
+    id: 'coldshower-14',
+    name: 'Ice Cavern',
+    description: '14 Tage kalte Duschen. Baue mentale Stärke.',
+    durationDays: 14,
+    category: 'challenge',
+    xpReward: 700,
+    icon: '🧊',
+  },
+  {
+    id: 'nosugar-21',
+    name: 'Sugar Desert',
+    description: '21 Tage ohne Zucker. Entkomme der Süßigkeit.',
+    durationDays: 21,
+    category: 'challenge',
+    xpReward: 800,
+    icon: '🏜️',
+  },
+];
+
+// === LIFE STATS ===
+export type StatCategory = 'body' | 'finance' | 'gym' | 'mental' | 'custom';
+
+export interface LifeStatDefinition {
+  id: string;
+  name: string;
+  category: StatCategory;
+  unit: string;
+  min?: number;
+  max?: number;
+  target?: number; // Target value (higher or lower is better depending on stat)
+  higherIsBetter: boolean;
+  icon: string;
+}
+
+export interface LifeStatEntry {
+  id: string;
+  statId: string;
+  value: number;
+  recordedAt: string;
+  note?: string;
+}
+
+export const DEFAULT_LIFE_STATS: LifeStatDefinition[] = [
+  { id: 'weight', name: 'Gewicht', category: 'body', unit: 'kg', higherIsBetter: false, icon: '⚖️' },
+  { id: 'bodyfat', name: 'Körperfett', category: 'body', unit: '%', higherIsBetter: false, icon: '📊' },
+  { id: 'bench', name: 'Bankdrücken', category: 'gym', unit: 'kg', higherIsBetter: true, icon: '🏋️' },
+  { id: 'squat', name: 'Kniebeugen', category: 'gym', unit: 'kg', higherIsBetter: true, icon: '🦵' },
+  { id: 'deadlift', name: 'Kreuzheben', category: 'gym', unit: 'kg', higherIsBetter: true, icon: '💪' },
+  { id: 'balance', name: 'Kontostand', category: 'finance', unit: '€', higherIsBetter: true, icon: '💰' },
+  { id: 'sleep', name: 'Schlafqualität', category: 'mental', unit: '/10', min: 1, max: 10, higherIsBetter: true, icon: '😴' },
+  { id: 'mood', name: 'Stimmung', category: 'mental', unit: '/10', min: 1, max: 10, higherIsBetter: true, icon: '🧠' },
+];
+
+// Generate empty stat history
+export function createEmptyStatHistory(): LifeStatEntry[] {
+  return [];
+}
+
 export interface CharacterStats {
   strength: number;
   wisdom: number;

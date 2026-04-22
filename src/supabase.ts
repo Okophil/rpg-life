@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
-import type { Quest, Character } from './types'
+import type { Quest, Character, Dungeon, LifeStatEntry, LifeStatDefinition } from './types'
+import { getDefaultCharacter, DUNGEON_TEMPLATES, DEFAULT_LIFE_STATS } from './types'
 
 const supabaseUrl = 'https://vcdynoyjogbjgncdjwhl.supabase.co'
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjZHlub3lqb2diamduY2Rqd2hsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4NjUwNjcsImV4cCI6MjA5MjQ0MTA2N30.MKnPwRpPzqKcs7F6AHoU0cKpuyKktcULn0TySuv0ki0'
@@ -187,19 +188,257 @@ export async function deleteQuest(questId: string): Promise<void> {
   }
 }
 
-// Boss actions
-export async function getBossActions(bossType: string) {
+// Dungeon functions
+export async function getDungeons(): Promise<Dungeon[]> {
   const { data, error } = await supabase
-    .from('boss_actions')
+    .from('dungeons')
     .select('*')
-    .eq('boss_type', bossType)
+    .eq('user_id', USER_ID)
+    .order('started_at', { ascending: false })
   
   if (error) {
-    console.error('Error fetching boss actions:', error)
+    console.error('Error fetching dungeons:', error)
     return []
   }
   
-  return data
+  return data.map(d => ({
+    id: d.id,
+    name: d.name,
+    description: d.description,
+    category: d.category,
+    durationDays: d.duration_days,
+    days: d.days || [],
+    status: d.status,
+    startedAt: d.started_at,
+    completedAt: d.completed_at,
+    xpReward: d.xp_reward,
+    icon: d.icon,
+  }))
+}
+
+export async function createDungeon(templateId: string): Promise<Dungeon | null> {
+  const template = DUNGEON_TEMPLATES.find(t => t.id === templateId)
+  if (!template) return null
+  
+  const days = Array.from({ length: template.durationDays }, (_, i) => ({
+    day: i + 1,
+    completed: false,
+  }))
+  
+  const { data, error } = await supabase
+    .from('dungeons')
+    .insert({
+      user_id: USER_ID,
+      name: template.name,
+      description: template.description,
+      category: template.category,
+      duration_days: template.durationDays,
+      days: days,
+      status: 'active',
+      xp_reward: template.xpReward,
+      icon: template.icon,
+    })
+    .select()
+    .single()
+  
+  if (error) {
+    console.error('Error creating dungeon:', error)
+    throw error
+  }
+  
+  return {
+    id: data.id,
+    name: data.name,
+    description: data.description,
+    category: data.category,
+    durationDays: data.duration_days,
+    days: data.days,
+    status: data.status,
+    startedAt: data.started_at,
+    completedAt: data.completed_at,
+    xpReward: data.xp_reward,
+    icon: data.icon,
+  }
+}
+
+export async function checkInDungeonDay(dungeonId: string, dayNumber: number): Promise<void> {
+  const dungeon = await supabase
+    .from('dungeons')
+    .select('days, status')
+    .eq('id', dungeonId)
+    .single()
+  
+  if (dungeon.error) {
+    console.error('Error fetching dungeon:', dungeon.error)
+    throw dungeon.error
+  }
+  
+  const days = dungeon.data.days.map((d: any) => 
+    d.day === dayNumber ? { ...d, completed: true, completedAt: new Date().toISOString() } : d
+  )
+  
+  // Check if all days completed
+  const allCompleted = days.every((d: any) => d.completed)
+  
+  const { error } = await supabase
+    .from('dungeons')
+    .update({
+      days: days,
+      status: allCompleted ? 'completed' : 'active',
+      completed_at: allCompleted ? new Date().toISOString() : null,
+    })
+    .eq('id', dungeonId)
+  
+  if (error) {
+    console.error('Error updating dungeon:', error)
+    throw error
+  }
+}
+
+export async function resetDungeon(dungeonId: string): Promise<void> {
+  const { data: dungeon } = await supabase
+    .from('dungeons')
+    .select('duration_days')
+    .eq('id', dungeonId)
+    .single()
+  
+  if (!dungeon) return
+  
+  const days = Array.from({ length: dungeon.duration_days }, (_, i) => ({
+    day: i + 1,
+    completed: false,
+  }))
+  
+  const { error } = await supabase
+    .from('dungeons')
+    .update({
+      days: days,
+      status: 'active',
+      completed_at: null,
+      started_at: new Date().toISOString(),
+    })
+    .eq('id', dungeonId)
+  
+  if (error) {
+    console.error('Error resetting dungeon:', error)
+    throw error
+  }
+}
+
+// Life Stats functions
+export async function getLifeStatDefinitions(): Promise<LifeStatDefinition[]> {
+  const { data, error } = await supabase
+    .from('life_stat_definitions')
+    .select('*')
+    .eq('user_id', USER_ID)
+  
+  if (error) {
+    console.error('Error fetching stat definitions:', error)
+    return DEFAULT_LIFE_STATS
+  }
+  
+  if (!data || data.length === 0) {
+    // Initialize defaults
+    await initializeDefaultStats()
+    return DEFAULT_LIFE_STATS
+  }
+  
+  return data.map(s => ({
+    id: s.id,
+    name: s.name,
+    category: s.category,
+    unit: s.unit,
+    min: s.min,
+    max: s.max,
+    target: s.target,
+    higherIsBetter: s.higher_is_better,
+    icon: s.icon,
+  }))
+}
+
+async function initializeDefaultStats(): Promise<void> {
+  const inserts = DEFAULT_LIFE_STATS.map(stat => ({
+    user_id: USER_ID,
+    id: stat.id,
+    name: stat.name,
+    category: stat.category,
+    unit: stat.unit,
+    min: stat.min,
+    max: stat.max,
+    target: stat.target,
+    higher_is_better: stat.higherIsBetter,
+    icon: stat.icon,
+  }))
+  
+  const { error } = await supabase
+    .from('life_stat_definitions')
+    .insert(inserts)
+  
+  if (error) {
+    console.error('Error initializing default stats:', error)
+  }
+}
+
+export async function addLifeStatEntry(statId: string, value: number, note?: string): Promise<void> {
+  const { error } = await supabase
+    .from('life_stat_entries')
+    .insert({
+      user_id: USER_ID,
+      stat_id: statId,
+      value: value,
+      note: note,
+      recorded_at: new Date().toISOString(),
+    })
+  
+  if (error) {
+    console.error('Error adding stat entry:', error)
+    throw error
+  }
+}
+
+export async function getLifeStatHistory(statId: string, limit: number = 30): Promise<LifeStatEntry[]> {
+  const { data, error } = await supabase
+    .from('life_stat_entries')
+    .select('*')
+    .eq('user_id', USER_ID)
+    .eq('stat_id', statId)
+    .order('recorded_at', { ascending: false })
+    .limit(limit)
+  
+  if (error) {
+    console.error('Error fetching stat history:', error)
+    return []
+  }
+  
+  return data.map(e => ({
+    id: e.id,
+    statId: e.stat_id,
+    value: e.value,
+    recordedAt: e.recorded_at,
+    note: e.note,
+  }))
+}
+
+export async function getAllLifeStatEntries(): Promise<LifeStatEntry[]> {
+  const { data, error } = await supabase
+    .from('life_stat_entries')
+    .select('*')
+    .eq('user_id', USER_ID)
+    .order('recorded_at', { ascending: false })
+    .limit(100)
+  
+  if (error) {
+    console.error('Error fetching all stat entries:', error)
+    return []
+  }
+  
+  return data.map(e => ({
+    id: e.id,
+    statId: e.stat_id,
+    value: e.value,
+    recordedAt: e.recorded_at,
+    note: e.note,
+  }))
 }
 
 // Real-time subscriptions
