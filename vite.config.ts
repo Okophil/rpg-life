@@ -7,5 +7,6 @@ export default defineConfig({
   base: '/rpg-life/',
   build: {
     outDir: 'dist',
+    cssCodeSplit: false,
   },
 })
