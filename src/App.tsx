@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Quest, QuestType, Character, CharacterStats } from './types';
 import {
-  generateId,
   getDefaultCharacter,
   getQuestTypeLabel,
   getQuestTypeBg,
@@ -9,11 +8,20 @@ import {
   calculateXpToNextLevel,
   CORE_VALUES,
 } from './types';
-import { saveQuests, loadQuests, saveCharacter, loadCharacter } from './storage';
+import { 
+  getCharacter, 
+  updateCharacter, 
+  getQuests, 
+  createQuest, 
+  updateQuest, 
+  deleteQuest,
+  subscribeToQuests 
+} from './supabase';
 
 function App() {
   const [quests, setQuests] = useState<Quest[]>([]);
   const [character, setCharacter] = useState<Character>(getDefaultCharacter());
+  const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showReflectionModal, setShowReflectionModal] = useState(false);
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
@@ -27,56 +35,83 @@ function App() {
   const [reflectionText, setReflectionText] = useState('');
   const [hpDamage, setHpDamage] = useState(25);
 
+  // Load data from Supabase
   useEffect(() => {
-    setQuests(loadQuests());
-    setCharacter(loadCharacter());
+    loadData();
+    
+    // Subscribe to real-time updates
+    const subscription = subscribeToQuests((updatedQuests) => {
+      setQuests(updatedQuests);
+    });
+    
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  useEffect(() => {
-    saveQuests(quests);
-  }, [quests]);
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [charData, questsData] = await Promise.all([
+        getCharacter(),
+        getQuests()
+      ]);
+      
+      if (charData) {
+        setCharacter(charData);
+      }
+      setQuests(questsData);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  useEffect(() => {
-    saveCharacter(character);
-  }, [character]);
-
-  const createQuest = () => {
+  const handleCreateQuest = async () => {
     if (!newQuestTitle.trim()) return;
     
-    const newQuest: Quest = {
-      id: generateId(),
-      title: newQuestTitle,
-      type: newQuestType,
-      hp: newQuestType === 'boss' ? newQuestHp : undefined,
-      maxHp: newQuestType === 'boss' ? newQuestHp : undefined,
-      xpReward: newQuestXp,
-      status: 'active',
-      createdAt: new Date().toISOString(),
-      tags: newQuestTags,
-    };
-    
-    setQuests([...quests, newQuest]);
-    setNewQuestTitle('');
-    setNewQuestXp(50);
-    setNewQuestHp(100);
-    setNewQuestTags([]);
-    setShowCreateModal(false);
+    try {
+      const newQuest = await createQuest({
+        title: newQuestTitle,
+        description: '',
+        type: newQuestType,
+        hp: newQuestType === 'boss' ? newQuestHp : undefined,
+        maxHp: newQuestType === 'boss' ? newQuestHp : undefined,
+        xpReward: newQuestXp,
+        status: 'active',
+        tags: newQuestTags,
+      });
+      
+      setQuests([newQuest, ...quests]);
+      setNewQuestTitle('');
+      setNewQuestXp(50);
+      setNewQuestHp(100);
+      setNewQuestTags([]);
+      setShowCreateModal(false);
+    } catch (error) {
+      console.error('Error creating quest:', error);
+    }
   };
 
-  const damageBoss = (questId: string, damage: number) => {
-    setQuests(quests.map(q => {
-      if (q.id !== questId || q.type !== 'boss') return q;
-      const newHp = Math.max(0, (q.hp || 0) - damage);
-      return { ...q, hp: newHp };
-    }));
-  };
-
-  const completeQuest = (questId: string) => {
+  const handleDamageBoss = async (questId: string, damage: number) => {
     const quest = quests.find(q => q.id === questId);
-    if (!quest) return;
+    if (!quest || quest.type !== 'boss') return;
+    
+    const newHp = Math.max(0, (quest.hp || 0) - damage);
+    
+    try {
+      await updateQuest(questId, { hp: newHp });
+      setQuests(quests.map(q => 
+        q.id === questId ? { ...q, hp: newHp } : q
+      ));
+    } catch (error) {
+      console.error('Error damaging boss:', error);
+    }
+  };
 
+  const handleCompleteQuest = (quest: Quest) => {
     if (quest.type === 'boss' && (quest.hp || 0) > 0) {
-      // Boss not defeated yet
       return;
     }
 
@@ -85,53 +120,73 @@ function App() {
     setShowReflectionModal(true);
   };
 
-  const finishCompletion = () => {
+  const finishCompletion = async () => {
     if (!selectedQuest) return;
 
-    const updatedQuests = quests.map(q =>
-      q.id === selectedQuest.id
-        ? { ...q, status: 'completed' as const, completedAt: new Date().toISOString(), reflection: reflectionText }
-        : q
-    );
-    setQuests(updatedQuests);
+    try {
+      const completedAt = new Date().toISOString();
+      
+      await updateQuest(selectedQuest.id, { 
+        status: 'completed',
+        completedAt: completedAt,
+        reflection: reflectionText
+      });
 
-    // Update character
-    const xpGained = selectedQuest.xpReward;
-    const newXp = character.xp + xpGained;
-    let newLevel = character.level;
-    let remainingXp = newXp;
-    let xpToNext = character.xpToNextLevel;
+      // Update local state
+      setQuests(quests.map(q =>
+        q.id === selectedQuest.id
+          ? { ...q, status: 'completed', completedAt, reflection: reflectionText }
+          : q
+      ));
 
-    while (remainingXp >= xpToNext) {
-      remainingXp -= xpToNext;
-      newLevel++;
-      xpToNext = calculateXpToNextLevel(newLevel);
+      // Update character
+      const xpGained = selectedQuest.xpReward;
+      const newXp = character.xp + xpGained;
+      let newLevel = character.level;
+      let remainingXp = newXp;
+      let xpToNext = character.xpToNextLevel;
+
+      while (remainingXp >= xpToNext) {
+        remainingXp -= xpToNext;
+        newLevel++;
+        xpToNext = calculateXpToNextLevel(newLevel);
+      }
+
+      const isBoss = selectedQuest.type === 'boss';
+      const statBonus = isBoss ? 2 : 1;
+      const randomStat = ['strength', 'wisdom', 'creativity', 'discipline'][Math.floor(Math.random() * 4)] as keyof CharacterStats;
+
+      const updatedCharacter = {
+        ...character,
+        level: newLevel,
+        xp: remainingXp,
+        xpToNextLevel: xpToNext,
+        stats: {
+          ...character.stats,
+          [randomStat]: character.stats[randomStat] + statBonus,
+        },
+        totalQuestsCompleted: character.totalQuestsCompleted + 1,
+        totalBossesDefeated: isBoss ? character.totalBossesDefeated + 1 : character.totalBossesDefeated,
+      };
+
+      await updateCharacter(updatedCharacter);
+      setCharacter(updatedCharacter);
+
+      setShowReflectionModal(false);
+      setSelectedQuest(null);
+      setReflectionText('');
+    } catch (error) {
+      console.error('Error completing quest:', error);
     }
-
-    const isBoss = selectedQuest.type === 'boss';
-    const statBonus = isBoss ? 2 : 1;
-    const randomStat = ['strength', 'wisdom', 'creativity', 'discipline'][Math.floor(Math.random() * 4)] as keyof CharacterStats;
-
-    setCharacter({
-      ...character,
-      level: newLevel,
-      xp: remainingXp,
-      xpToNextLevel: xpToNext,
-      stats: {
-        ...character.stats,
-        [randomStat]: character.stats[randomStat] + statBonus,
-      },
-      totalQuestsCompleted: character.totalQuestsCompleted + 1,
-      totalBossesDefeated: isBoss ? character.totalBossesDefeated + 1 : character.totalBossesDefeated,
-    });
-
-    setShowReflectionModal(false);
-    setSelectedQuest(null);
-    setReflectionText('');
   };
 
-  const deleteQuest = (questId: string) => {
-    setQuests(quests.filter(q => q.id !== questId));
+  const handleDeleteQuest = async (questId: string) => {
+    try {
+      await deleteQuest(questId);
+      setQuests(quests.filter(q => q.id !== questId));
+    } catch (error) {
+      console.error('Error deleting quest:', error);
+    }
   };
 
   const activeQuests = quests.filter(q => q.status === 'active');
@@ -146,6 +201,14 @@ function App() {
       setNewQuestTags([...newQuestTags, tag]);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-bg-dark flex items-center justify-center">
+        <div className="text-primary text-xl font-bold">Loading RPG Life...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-bg-dark p-4 md:p-8">
@@ -260,7 +323,7 @@ function App() {
                         placeholder="DMG"
                       />
                       <button
-                        onClick={() => damageBoss(quest.id, hpDamage)}
+                        onClick={() => handleDamageBoss(quest.id, hpDamage)}
                         className="flex-1 bg-danger hover:bg-red-600 text-white py-2 rounded-lg font-medium transition-colors"
                       >
                         Attack
@@ -268,14 +331,14 @@ function App() {
                     </>
                   ) : (
                     <button
-                      onClick={() => completeQuest(quest.id)}
+                      onClick={() => handleCompleteQuest(quest)}
                       className="flex-1 bg-success hover:bg-green-600 text-white py-2 rounded-lg font-medium transition-colors"
                     >
                       Complete
                     </button>
                   )}
                   <button
-                    onClick={() => deleteQuest(quest.id)}
+                    onClick={() => handleDeleteQuest(quest.id)}
                     className="px-3 py-2 text-text-muted hover:text-danger transition-colors"
                   >
                     ✕
@@ -397,7 +460,7 @@ function App() {
                 Cancel
               </button>
               <button
-                onClick={createQuest}
+                onClick={handleCreateQuest}
                 disabled={!newQuestTitle.trim()}
                 className="flex-1 bg-primary hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 rounded-lg font-medium transition-colors"
               >
