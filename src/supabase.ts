@@ -3,7 +3,7 @@ import type { Quest, Character, Dungeon, LifeStatEntry, LifeStatDefinition } fro
 import { getDefaultCharacter, DUNGEON_TEMPLATES, DEFAULT_LIFE_STATS } from './types'
 
 const supabaseUrl = 'https://vcdynoyjogbjgncdjwhl.supabase.co'
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjZHlub3lqb2diamduY2Rqd2hsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4NjUwNjcsImV4cCI6MjA5MjQ0MTA2N30.MKnPwRpPzqKcs7F6AHoU0cKpuyKktcULn0TySuv0ki0'
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjZHlub3lqb2diamduY2Rqd2hsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3Njg2NTA2NywiZXhwIjoyMDkyNDQxMDY3fQ.F3VcxB7lp4JQLj7GnU1NUSgQ9cRG_a0rUCiqR_KtjO0'
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
