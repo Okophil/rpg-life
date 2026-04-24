@@ -13,6 +13,7 @@ export interface Quest {
   completedAt?: string;
   reflection?: string;
   tags: string[];
+  spriteKey?: string;
 }
 
 // === DUNGEONS ===
