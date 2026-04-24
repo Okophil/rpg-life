@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import type { Quest, QuestType, Character, CharacterStats, Dungeon, LifeStatDefinition, LifeStatEntry } from './types';
 import {
   getDefaultCharacter,
-  getQuestTypeLabel,
-  getQuestTypeColor,
   calculateXpToNextLevel,
   CORE_VALUES,
   DUNGEON_TEMPLATES,
@@ -101,7 +99,6 @@ function App() {
   const [newQuestXp, setNewQuestXp] = useState(50);
   const [newQuestHp, setNewQuestHp] = useState(100);
   const [newQuestTags, setNewQuestTags] = useState<string[]>([]);
-  const [newQuestSprite, setNewQuestSprite] = useState<string>('goblin');
   const [reflectionText, setReflectionText] = useState('');
   const [hpDamage, setHpDamage] = useState(25);
   const [statValue, setStatValue] = useState('');
@@ -184,7 +181,6 @@ function App() {
     setNewQuestXp(50);
     setNewQuestHp(100);
     setNewQuestTags([]);
-    setNewQuestSprite('goblin');
   };
 
   const handleDamageBoss = async (questId: string, damage: number) => {
@@ -820,22 +816,6 @@ function App() {
       </>
     );
   };
-                        <div className="flex-1">
-                          <h4 className="text-text font-bold">{dungeon.name}</h4>
-                          <p className="text-success text-sm">✓ Completed</p>
-                        </div>
-                        <span className="text-xp">+{dungeon.xpReward} XP</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </>
-    );
-  };
 
   const renderStats = () => {
     const categories = ['body', 'finance', 'gym', 'mental'] as const;
@@ -1220,190 +1200,6 @@ function App() {
                 className="flex-1 btn-medieval disabled:opacity-50 disabled:cursor-not-allowed text-parchment py-2 rounded-lg font-medieval"
               >
                 Speichern
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-                    value={newQuestHp}
-                    onChange={(e) => setNewQuestHp(parseInt(e.target.value) || 100)}
-                    className="w-full bg-bg-dark text-text rounded-lg px-4 py-2 border border-surface-light focus:border-primary focus:outline-none"
-                  />
-                </div>
-              )}
-              
-              <div>
-                <label className="block text-text-muted text-sm mb-2">XP Reward</label>
-                <input
-                  type="number"
-                  value={newQuestXp}
-                  onChange={(e) => setNewQuestXp(parseInt(e.target.value) || 0)}
-                  className="w-full bg-bg-dark text-text rounded-lg px-4 py-2 border border-surface-light focus:border-primary focus:outline-none"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-text-muted text-sm mb-2">Core Values</label>
-                <div className="flex flex-wrap gap-2">
-                  {CORE_VALUES.map(tag => (
-                    <button
-                      key={tag}
-                      onClick={() => toggleTag(tag)}
-                      className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                        newQuestTags.includes(tag)
-                          ? 'bg-primary text-white'
-                          : 'bg-surface-light text-text-muted hover:text-text'
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="flex-1 py-2 text-text-muted hover:text-text transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateQuest}
-                disabled={!newQuestTitle.trim()}
-                className="flex-1 bg-primary hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 rounded-lg font-medium transition-colors"
-              >
-                Create Quest
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Reflection Modal */}
-      {showReflectionModal && selectedQuest && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-          <div className="bg-surface rounded-xl p-6 w-full max-w-md border border-surface-light">
-            <div className="text-center mb-4">
-              <div className="text-4xl mb-2">⚔️</div>
-              <h2 className="text-xl font-bold text-text">Victory!</h2>
-              <p className="text-success font-bold mt-1">+{selectedQuest.xpReward} XP</p>
-            </div>
-            
-            <p className="text-text-muted text-sm mb-3">
-              You defeated: <span className="text-text font-medium">{selectedQuest.title}</span>
-            </p>
-            
-            <textarea
-              value={reflectionText}
-              onChange={(e) => setReflectionText(e.target.value)}
-              className="w-full h-24 bg-bg-dark text-text rounded-lg px-4 py-2 border border-surface-light focus:border-primary focus:outline-none resize-none"
-              placeholder="Document your victory... (optional)"
-            />
-            
-            <button
-              onClick={finishCompletion}
-              className="w-full bg-success hover:bg-green-600 text-white py-3 rounded-lg font-medium mt-4 transition-colors"
-            >
-              Claim Reward
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Dungeon Templates Modal */}
-      {showDungeonTemplates && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-          <div className="bg-surface rounded-xl p-6 w-full max-w-lg border border-surface-light max-h-[80vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-text mb-4">Choose Your Dungeon</h2>
-            
-            <div className="space-y-3">
-              {DUNGEON_TEMPLATES.map(template => (
-                <button
-                  key={template.id}
-                  onClick={() => handleStartDungeon(template.id)}
-                  className="w-full bg-surface-light hover:bg-primary/10 rounded-lg p-4 text-left border border-transparent hover:border-primary/30 transition-all"
-                >
-                  <div className="flex items-center gap-4">
-                    <span className="text-3xl">{template.icon}</span>
-                    <div className="flex-1">
-                      <h3 className="text-text font-bold">{template.name}</h3>
-                      <p className="text-text-muted text-sm">{template.description}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xp font-bold">+{template.xpReward} XP</span>
-                      <p className="text-text-muted text-xs">{template.durationDays} Days</p>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-            
-            <button
-              onClick={() => setShowDungeonTemplates(false)}
-              className="w-full mt-4 py-2 text-text-muted hover:text-text transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Stat Entry Modal */}
-      {showStatEntryModal && selectedStat && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-          <div className="bg-surface rounded-xl p-6 w-full max-w-md border border-surface-light">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">{selectedStat.icon}</span>
-              <div>
-                <h2 className="text-xl font-bold text-text">{selectedStat.name}</h2>
-                <p className="text-text-muted text-sm">{selectedStat.unit}</p>
-              </div>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-text-muted text-sm mb-2">Value</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={statValue}
-                  onChange={(e) => setStatValue(e.target.value)}
-                  className="w-full bg-bg-dark text-text rounded-lg px-4 py-2 border border-surface-light focus:border-primary focus:outline-none"
-                  placeholder={`Enter ${selectedStat.name}`}
-                  autoFocus
-                />
-              </div>
-              
-              <div>
-                <label className="block text-text-muted text-sm mb-2">Note (optional)</label>
-                <input
-                  type="text"
-                  value={statNote}
-                  onChange={(e) => setStatNote(e.target.value)}
-                  className="w-full bg-bg-dark text-text rounded-lg px-4 py-2 border border-surface-light focus:border-primary focus:outline-none"
-                  placeholder="Add a note..."
-                />
-              </div>
-            </div>
-            
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowStatEntryModal(false)}
-                className="flex-1 py-2 text-text-muted hover:text-text transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddStatEntry}
-                disabled={!statValue.trim() || isNaN(parseFloat(statValue))}
-                className="flex-1 bg-primary hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 rounded-lg font-medium transition-colors"
-              >
-                Save Entry
               </button>
             </div>
           </div>
